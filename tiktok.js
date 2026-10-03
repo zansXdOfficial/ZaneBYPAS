@@ -91,13 +91,63 @@ async function commentsViaApi(id, cookie) {
   return out;
 }
 
+// Jalur cadangan: endpoint oEmbed resmi TikTok. Hanya memberi deskripsi + nama akun.
+async function scanViaOEmbed(url) {
+  let j;
+  try {
+    const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, {
+      headers: { 'user-agent': UA },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) throw new Error(`status ${r.status}`);
+    j = await r.json();
+  } catch (e) {
+    throw new Error(
+      'TikTok memblokir server ini dan video tidak bisa dibaca. Coba jalankan dari HP (Termux) atau server lain, atau cek apakah videonya private.'
+    );
+  }
+  const desc = j.title || '';
+  const d = extractLinks(desc, 'deskripsi');
+  return {
+    video: {
+      id: j.embed_product_id || '',
+      desc,
+      author: j.author_unique_id || '',
+      nickname: j.author_name || '',
+      avatar: '',
+      cover: j.thumbnail_url || '',
+      comments: null,
+      views: null,
+      likes: null,
+    },
+    sources: [
+      { name: 'Deskripsi', checked: true, found: d.length },
+      { name: 'Bio akun', checked: false, found: 0 },
+      { name: 'Bio link', checked: false, found: 0 },
+      { name: 'Komentar', checked: false, found: 0 },
+      { name: 'Balasan', checked: false, found: 0 },
+    ],
+    links: mergeLinks(d),
+    notes: [
+      'TikTok memblokir server ini, jadi hanya deskripsi yang bisa discan. Bio, komentar, dan balasan dilewati. Untuk hasil lengkap, jalankan dari HP (Termux) atau server lain.',
+    ],
+  };
+}
+
 export async function scanTikTok(inputUrl) {
   if (!isTikTokUrl(inputUrl)) throw new Error('Link harus dari tiktok.com');
 
   const notes = [];
-  const page = await openVideoPage(inputUrl);
-  const item = parseItem(page.html);
-  if (!item) throw new Error('Data video tidak bisa dibaca (link salah, video private, atau TikTok memblokir request)');
+  let page = null;
+  let item = null;
+  try {
+    page = await openVideoPage(inputUrl);
+    item = parseItem(page.html);
+  } catch {
+    /* lanjut ke jalur cadangan */
+  }
+  // Server cloud (Vercel, dll) sering diblok TikTok -> pakai oEmbed (deskripsi saja)
+  if (!item) return scanViaOEmbed(inputUrl);
 
   const author = item.author || {};
   const stats = item.stats || {};
