@@ -84,7 +84,7 @@
 const $ = (s) => document.querySelector(s);
 const u = $('#u'), out = $('#out'), go = $('#go');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt = (n) => n >= 1e6 ? (n/1e6).toFixed(1)+' M' : n >= 1e3 ? (n/1e3).toFixed(1)+' K' : String(n);
+const fmt = (n) => n == null ? '-' : n >= 1e6 ? (n/1e6).toFixed(1)+' M' : n >= 1e3 ? (n/1e3).toFixed(1)+' K' : String(n);
 
 // riwayat link (disimpan di browser, kalau tersedia)
 function recents() { try { return JSON.parse(localStorage.getItem('recent') || '[]'); } catch { return []; } }
